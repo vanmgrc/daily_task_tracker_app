@@ -1,0 +1,11 @@
+{
+  "name": "daily-task-tracker",
+  "version": "1.0.0",
+  "description": "A personal desktop Kanban task tracker app",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "vanmgrc",
+  "license": "MIT"
+}
