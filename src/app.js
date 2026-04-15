@@ -87,6 +87,8 @@ function render() {
         <div class="card-priority ${t.priority}">${t.priority} priority</div>
         <div class="card-title">${escHtml(t.title)}</div>
         ${t.description ? `<div class="card-desc">${escHtml(t.description)}</div>` : ""}
+        ${t.url ? `<a class="card-url" href="${escHtml(t.url)}" target="_blank" title="${escHtml(t.url)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> ${escHtml(t.url.replace(/^https?:\/\//, "").substring(0, 30))}${t.url.replace(/^https?:\/\//, "").length > 30 ? "..." : ""}</a>` : ""}
+        ${t.dueDate ? `<div class="card-due ${isDueOverdue(t.dueDate) ? "overdue" : isDueSoon(t.dueDate) ? "due-soon" : ""}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ${formatDueDate(t.dueDate)}</div>` : ""}
         <div class="card-footer">
           <span>${formatDate(t.createdAt)}</span>
           <div class="card-actions">
@@ -105,15 +107,16 @@ function render() {
 
   // List view
   if (list.length === 0) {
-    listBody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text-muted);">No tasks found</td></tr>`;
+    listBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-muted);">No tasks found</td></tr>`;
   } else {
     listBody.innerHTML = list
       .map(
         (t) => `
       <tr>
-        <td><strong>${escHtml(t.title)}</strong>${t.description ? `<br><span style="color:var(--text-muted);font-size:.78rem">${escHtml(t.description)}</span>` : ""}</td>
+        <td><strong>${escHtml(t.title)}</strong>${t.description ? `<br><span style="color:var(--text-muted);font-size:.78rem">${escHtml(t.description)}</span>` : ""}${t.url ? `<br><a class="card-url" href="${escHtml(t.url)}" target="_blank" style="font-size:.75rem">${escHtml(t.url.replace(/^https?:\/\//, "").substring(0, 40))}</a>` : ""}</td>
         <td><span class="badge ${t.priority}">${t.priority}</span></td>
         <td><span class="badge ${t.status}">${statusLabel(t.status)}</span></td>
+        <td style="font-size:.8rem;color:var(--text-muted)">${t.dueDate ? `<span class="${isDueOverdue(t.dueDate) ? "overdue" : isDueSoon(t.dueDate) ? "due-soon" : ""}">${formatDueDate(t.dueDate)}</span>` : "—"}</td>
         <td style="font-size:.8rem;color:var(--text-muted)">${formatDate(t.createdAt)}</td>
         <td class="list-actions">
           <button data-action="edit" data-id="${t.id}">Edit</button>
@@ -134,6 +137,25 @@ function render() {
 
 function statusLabel(s) {
   return { todo: "To Do", inprogress: "In Progress", done: "Done" }[s] || s;
+}
+
+function formatDueDate(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function isDueOverdue(dateStr) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return new Date(dateStr + "T00:00:00") < today;
+}
+
+function isDueSoon(dateStr) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dateStr + "T00:00:00");
+  const diff = (due - today) / (1000 * 60 * 60 * 24);
+  return diff >= 0 && diff <= 2;
 }
 
 function escHtml(str) {
@@ -228,6 +250,8 @@ function openModal(id = null, defaultStatus = "todo") {
     $("#modalTitle").textContent = "Edit Task";
     $("#inputTitle").value = t.title;
     $("#inputDesc").value = t.description || "";
+    $("#inputUrl").value = t.url || "";
+    $("#inputDue").value = t.dueDate || "";
     $("#inputPriority").value = t.priority;
     $("#inputStatus").value = t.status;
   } else {
@@ -268,11 +292,16 @@ async function handleSave(e) {
   const title = $("#inputTitle").value.trim();
   if (!title) return;
 
+  const url = $("#inputUrl").value.trim();
+  const dueDate = $("#inputDue").value || "";
+
   if (editingId) {
     const t = tasks.find((t) => t.id === editingId);
     if (t) {
       t.title = title;
       t.description = $("#inputDesc").value.trim();
+      t.url = url;
+      t.dueDate = dueDate;
       t.priority = $("#inputPriority").value;
       t.status = $("#inputStatus").value;
     }
@@ -281,6 +310,8 @@ async function handleSave(e) {
       id: uuid(),
       title,
       description: $("#inputDesc").value.trim(),
+      url,
+      dueDate,
       priority: $("#inputPriority").value,
       status: $("#inputStatus").value,
       createdAt: new Date().toISOString(),
